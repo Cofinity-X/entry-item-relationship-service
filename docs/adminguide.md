@@ -9,7 +9,7 @@ The deployment contains the components required to connect the IRS to an existin
 
 Everything else needs to be provided externally.
 
-![adminguide_000](https://eclipse-tractusx.github.io/item-relationship-service/docs/assets/adminguide/adminguide_000.png)
+![adminguide_000](https://Cofinity-X.github.io/entry-item-relationship-service/docs/assets/adminguide/adminguide_000.png)
 
 ## Installation
 
@@ -214,20 +214,18 @@ irs-edc-client:
   submodel:
     request-ttl: ${EDC_SUBMODEL_REQUEST_TTL:PT10M} # How long to wait for an async EDC submodel retrieval to finish, ISO 8601 Duration
     urn-prefix: ${EDC_SUBMODEL_URN_PREFIX:/urn} # A prefix used to identify URNs correctly in the submodel endpoint address
+    submodel-suffix: "/$value"
     timeout:
       read: PT90S # HTTP read timeout for the submodel client
       connect: PT90S # HTTP connect timeout for the submodel client
 
   catalog:
-    # IRS will only negotiate contracts for offers with a policy as defined in the acceptedPolicies list.
-    # If a requested asset does not provide one of these policies, a tombstone will be created and this node will not be processed.
-    acceptedPolicies:
-      - leftOperand: "cx-policy:FrameworkAgreement"
-        operator: "eq"
-        rightOperand: "traceability:1.0"
-      - leftOperand: "cx-policy:UsagePurpose"
-        operator: "eq"
-        rightOperand: "cx.core.industrycore:1"
+    # IRS will only negotiate contracts for offers with a policy as defined in the Policy Store.
+    # The following configuration value allows the definition of default policies to be used
+    # if no policy has been defined via the Policy Store API.
+    # If the policy check fails, a tombstone will be created and this node will not be processed.
+    # The value must be Base64 encoded here. See decoded value in charts/item-relationship-service/values.yaml.
+    acceptedPolicies: "W3sKICAgICJwb2xpY3lJZCI6ICJkZWZhdWx0LXBvbGljeSIsCiAgICAiY3JlYXRlZE9uIjogIjIwMjQtMDctMTdUMTY6MTU6MTQuMTIzNDU2NzhaIiwKICAgICJ2YWxpZFVudGlsIjogIjk5OTktMDEtMDFUMDA6MDA6MDAuMDAwMDAwMDBaIiwKICAgICJwZXJtaXNzaW9ucyI6IFsKICAgICAgICB7CiAgICAgICAgICAgICJhY3Rpb24iOiAidXNlIiwKICAgICAgICAgICAgImNvbnN0cmFpbnQiOiB7CiAgICAgICAgICAgICAgICAiYW5kIjogWwogICAgICAgICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICAgICAgImxlZnRPcGVyYW5kIjogImh0dHBzOi8vdzNpZC5vcmcvY2F0ZW5heC9wb2xpY3kvRnJhbWV3b3JrQWdyZWVtZW50IiwKICAgICAgICAgICAgICAgICAgICAgICAgIm9wZXJhdG9yIjogewogICAgICAgICAgICAgICAgICAgICAgICAgICAgIkBpZCI6ICJlcSIKICAgICAgICAgICAgICAgICAgICAgICAgfSwKICAgICAgICAgICAgICAgICAgICAgICAgInJpZ2h0T3BlcmFuZCI6ICJ0cmFjZWFiaWxpdHk6MS4wIgogICAgICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICAgICAibGVmdE9wZXJhbmQiOiAiaHR0cHM6Ly93M2lkLm9yZy9jYXRlbmF4L3BvbGljeS9Vc2FnZVB1cnBvc2UiLAogICAgICAgICAgICAgICAgICAgICAgICAib3BlcmF0b3IiOiB7CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAiQGlkIjogImVxIgogICAgICAgICAgICAgICAgICAgICAgICB9LAogICAgICAgICAgICAgICAgICAgICAgICAicmlnaHRPcGVyYW5kIjogImN4LmNvcmUuaW5kdXN0cnljb3JlOjEiCiAgICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgXQogICAgICAgICAgICB9CiAgICAgICAgfQogICAgXQp9XQ=="
   discoveryFinderClient:
     cacheTTL: PT24H  # Time to live for DiscoveryFinderClient for findDiscoveryEndpoints method cache
   connectorEndpointService:
@@ -376,16 +374,42 @@ edc:
     request:
       ttl: PT10M  # Requests to dataplane will time out after this duration (see https://en.wikipedia.org/wiki/ISO_8601#Durations)
     urnprefix: /urn
+    suffix: /$value
   catalog:
-    # IRS will only negotiate contracts for offers with a policy as defined in the allowedNames list.
-    # If a requested asset does not provide one of these policies, a tombstone will be created and this node will not be processed.
-    acceptedPolicies:
-      - leftOperand: "cx-policy:FrameworkAgreement"
-        operator: "eq"
-        rightOperand: "traceability:1.0"
-      - leftOperand: "cx-policy:UsagePurpose"
-        operator: "eq"
-        rightOperand: "cx.core.industrycore:1"
+    # IRS will only negotiate contracts for offers with a policy as defined in the Policy Store.
+    # The following configuration value allows the definition of default policies to be used
+    # if no policy has been defined via the Policy Store API.
+    # If the policy check fails, a tombstone will be created and this node will not be processed.
+    # Configure the default policies as JSON array using multiline string here.
+    acceptedPolicies: >
+      [{
+          "policyId": "default-policy",
+          "createdOn": "2024-07-17T16:15:14.12345678Z",
+          "validUntil": "9999-01-01T00:00:00.00000000Z",
+          "permissions": [
+              {
+                  "action": "use",
+                  "constraint": {
+                      "and": [
+                          {
+                              "leftOperand": "https://w3id.org/catenax/policy/FrameworkAgreement",
+                              "operator": {
+                                  "@id": "eq"
+                              },
+                              "rightOperand": "traceability:1.0"
+                          },
+                          {
+                              "leftOperand": "https://w3id.org/catenax/policy/UsagePurpose",
+                              "operator": {
+                                  "@id": "eq"
+                              },
+                              "rightOperand": "cx.core.industrycore:1"
+                          }
+                      ]
+                  }
+              }
+          ]
+      }]
   discoveryFinderClient:
     cacheTTL: PT24H  # Time to live for DiscoveryFinderClient for findDiscoveryEndpoints method cache
   connectorEndpointService:
@@ -491,6 +515,16 @@ grafana:
     existingSecret: "{{ .Release.Name }}-item-relationship-service"
     userKey: grafanaUser
     passwordKey: grafanaPassword
+
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          url: "http://{{ .Release.Name }}-prometheus-server"
+          isDefault: true
+
 ```
 
 1. Use this to enable or disable the monitoring components
@@ -720,9 +754,9 @@ Currently, the IRS only supports one version of the Job model at a time. This me
 This work is licensed under the [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0).
 
 * SPDX-License-Identifier: Apache-2.0
-* SPDX-FileCopyrightText: 2021, 2023 Bayerische Motoren Werke Aktiengesellschaft (BMW AG)
+* SPDX-FileCopyrightText: 2021, 2024 Bayerische Motoren Werke Aktiengesellschaft (BMW AG)
 * SPDX-FileCopyrightText: 2022, 2023 BOSCH AG
 * SPDX-FileCopyrightText: 2021, 2022 ZF Friedrichshafen AG
 * SPDX-FileCopyrightText: 2022  ISTOS GmbH
-* SPDX-FileCopyrightText: 2021, 2023 Contributors to the Eclipse Foundation
+* SPDX-FileCopyrightText: 2021, 2024 Contributors to the Eclipse Foundation
 * Source URL: <https://github.com/eclipse-tractusx/item-relationship-service>
